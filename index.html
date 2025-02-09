@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>心理咨询助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="app.js"></script>
+    <style>
+        .dot-flashing {
+            position: relative;
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background-color: #3b82f6;
+            color: #3b82f6;
+            animation: dotFlashing 1s infinite linear alternate;
+        }
+        .dot-flashing::before, .dot-flashing::after {
+            content: '';
+            display: inline-block;
+            position: absolute;
+            top: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background-color: #3b82f6;
+            color: #3b82f6;
+        }
+        .dot-flashing::before {
+            left: -15px;
+            animation: dotFlashing 1s infinite alternate;
+            animation-delay: 0s;
+        }
+        .dot-flashing::after {
+            left: 15px;
+            animation: dotFlashing 1s infinite alternate;
+            animation-delay: 0.5s;
+        }
+        @keyframes dotFlashing {
+            0% { opacity: 0.3; }
+            50%, 100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <!-- 帮助按钮 -->
+    <button onclick="showHelp()" class="fixed bottom-4 right-4 bg-purple-500 text-white p-3 rounded-full shadow-lg">
+        🛠️ 诊断帮助
+    </button>
+
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold mb-4 text-blue-600">心理咨询助手</h1>
+        
+        <!-- 聊天窗口 -->
+        <div id="chatBox" class="bg-white rounded-lg shadow-md p-4 h-96 overflow-y-auto mb-4">
+            <div class="text-gray-500">欢迎，我是您的心理咨询助手，请问有什么可以帮您？</div>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="flex gap-2 mb-4">
+            <input id="userInput" type="text" 
+                   class="flex-1 p-2 border rounded-lg"
+                   placeholder="请输入您的问题...">
+            <button onclick="sendMessage()" 
+                    class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                发送
+            </button>
+        </div>
+
+        <!-- 在总结区域上方添加 -->
+        <div id="networkStatus" class="hidden fixed top-0 left-0 right-0 bg-red-100 text-red-600 p-2 text-center text-sm">
+            ⚠️ 网络连接已断开，部分功能受限
+        </div>
+
+        <!-- 总结区域 -->
+        <div class="bg-white rounded-lg shadow-md p-4">
+            <h2 class="text-xl font-semibold mb-2">对话总结</h2>
+            <div id="summary" class="text-gray-600">总结将在此处显示...</div>
+            <button id="generateSummaryBtn" onclick="generateSummary()" 
+                    class="mt-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                生成总结
+            </button>
+            <button onclick="testAPI()" class="mt-2 bg-yellow-500 text-white px-4 py-2 rounded-lg">
+                API连通性测试
+            </button>
+            <button onclick="clearHistory()" class="mt-2 bg-red-500 text-white px-4 py-2 rounded-lg">
+                清除记录
+            </button>
+            <button onclick="localSummary()" class="mt-2 bg-gray-300 px-4 py-2 rounded-lg">
+                本地简易总结
+            </button>
+            <button onclick="showSummaryHistory()" class="mt-2 bg-indigo-500 text-white px-4 py-2 rounded-lg">
+                查看历史总结
+            </button>
+            <button onclick="cancelRequest()" class="mt-2 bg-gray-500 text-white px-4 py-2 rounded-lg">
+                取消请求
+            </button>
+            <button onclick="showDeletePanel()" class="mt-2 bg-orange-500 text-white px-4 py-2 rounded-lg">
+                选择删除
+            </button>
+        </div>
+    </div>
+
+    <!-- 诊断帮助面板 -->
+    <div id="helpPanel" class="hidden fixed inset-0 bg-black bg-opacity-50">
+        <div class="bg-white rounded-lg p-6 max-w-2xl mx-auto mt-20">
+            <h2 class="text-2xl font-bold mb-4">诊断指南</h2>
+            <div class="space-y-4">
+                <div>
+                    <h3 class="font-semibold">步骤1：打开控制台</h3>
+                    <p class="text-gray-600">Windows/Linux：按 <kbd>F12</kbd> 或 <kbd>Ctrl+Shift+I</kbd><br>
+                    Mac：按 <kbd>Option+⌘+I</kbd></p>
+                </div>
+                <div>
+                    <h3 class="font-semibold">步骤2：执行诊断命令</h3>
+                    <button onclick="copyDiagnoseCommand()" class="bg-blue-100 text-blue-600 px-3 py-1 rounded">
+                        点击复制诊断命令
+                    </button>
+                </div>
+                <div>
+                    <h3 class="font-semibold">步骤3：查看结果</h3>
+                    <p class="text-gray-600">正常结果应显示：<br>
+                    <code class="bg-gray-100 p-1 rounded">["基础连接: 200", "API密钥状态: 200", "聊天接口状态: 200"]</code></p>
+                </div>
+            </div>
+            <button onclick="hideHelp()" class="mt-4 bg-red-500 text-white px-4 py-2 rounded-lg">
+                关闭帮助
+            </button>
+        </div>
+    </div>
+
+    <script>
+    // 网络状态监测
+    window.addEventListener('online', () => {
+        document.getElementById('networkStatus').classList.add('hidden');
+    });
+    window.addEventListener('offline', () => {
+        document.getElementById('networkStatus').textContent = '⚠️ 当前处于离线状态';
+        document.getElementById('networkStatus').classList.remove('hidden');
+    });
+
+    // 诊断帮助功能
+    function showHelp() {
+        document.getElementById('helpPanel').classList.remove('hidden');
+    }
+
+    function hideHelp() {
+        document.getElementById('helpPanel').classList.add('hidden');
+    }
+
+    function copyDiagnoseCommand() {
+        const command = `(function(){
+            console.log("正在执行诊断...");
+            Promise.all([
+                fetch('https://api.siliconflow.cn/v1').then(r => '基础连接: '+r.status),
+                fetch('https://api.siliconflow.cn/v1/models',{headers:{Authorization:'Bearer sk-oxudyxhekdjepfhvbfwzsozhazoiyxqwqdjlsbsxsfujwiug'}}).then(r=>'API密钥状态: '+r.status),
+                fetch('https://api.siliconflow.cn/v1/chat/completions',{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json',Authorization:'Bearer sk-oxudyxhekdjepfhvbfwzsozhazoiyxqwqdjlsbsxsfujwiug'},
+                    body:JSON.stringify({model:"deepseek-ai/DeepSeek-R1-Distill-Llama-8B",messages:[{role:"user",content:"test"}],temperature:0.7})
+                }).then(r=>'聊天接口状态: '+r.status)
+            ]).then(results => {
+                console.log('%c诊断结果:', 'color: #3B82F6;', results.join('\\n'));
+                if(results.every(r => r.includes('200'))) {
+                    console.log('%c✅ 所有检测通过', 'color: #10B981;');
+                } else {
+                    console.log('%c⚠️ 发现问题：请检查红色项', 'color: #EF4444;');
+                }
+            }).catch(error => {
+                console.error('%c诊断失败:', 'color: red;', error);
+                console.log('%c可能原因：\\n1. API服务端点变更\\n2. 网络限制\\n3. 区域访问限制', 'color: #F59E0B;');
+            });
+        })();`;
+
+        navigator.clipboard.writeText(command).then(() => {
+            alert('诊断命令已更新，请重新测试！');
+        });
+    }
+    </script>
+</body>
+</html> 
